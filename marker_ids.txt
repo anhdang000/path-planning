@@ -1,0 +1,4 @@
+robot       33
+goal        50
+obstacle    56
+good        82

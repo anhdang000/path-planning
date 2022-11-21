@@ -10,11 +10,10 @@ from scipy.spatial import distance
 from plotting import Viz
 
 class RRTGraph(Viz):
-    def __init__(self, start, goal, map_dims, obs_dim, num_obs):
+    def __init__(self, start, goal, obs_dim, num_obs):
         super().__init__(start, goal)
         (x, y) = start
         self.goal_flag = False
-        self.map_h, self.map_w = map_dims
 
         # Init the tree
         self.X = []
@@ -38,7 +37,7 @@ class RRTGraph(Viz):
         y = int(random.uniform(0, self.map_h))
         return (x, y)
         
-    def make_obs(self):
+    def make_random_obs(self):
         obs = []
         for i in range(self.num_obs):
             start_goal_col = True
@@ -49,6 +48,14 @@ class RRTGraph(Viz):
                     start_goal_col = True
                 else:
                     start_goal_col = False
+            obs.append(ob)
+        self.obstacles = obs.copy()
+        return obs
+
+    def make_obs(self, pts):
+        obs = []
+        for c in pts:
+            ob = mpatches.Circle(c, self.obs_dim, facecolor=self.colors["obstacle"], edgecolor='g')
             obs.append(ob)
         self.obstacles = obs.copy()
         return obs
@@ -154,11 +161,14 @@ class RRTGraph(Viz):
         if self.goal_flag:
             self.path = []
             self.path.append(self.goal_state)
-            new_pos = self.parent[self.goal_state]
-            while new_pos != 0:
-                self.path.append(new_pos)
-                new_pos = self.parent[new_pos]
-            self.path.append(0)
+            try:
+                new_pos = self.parent[self.goal_state]
+                while new_pos != 0:
+                    self.path.append(new_pos)
+                    new_pos = self.parent[new_pos]
+                self.path.append(0)
+            except:
+                self.goal_flag = False
         return self.goal_flag
 
         

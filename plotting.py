@@ -13,13 +13,14 @@ class Viz:
         self.start = start
         self.goal = goal
         self.margin = 50
+        self.map_w = self.goal[0] - self.start[0] + 2*self.margin
+        self.map_h = self.goal[1] - self.start[1] + 2*self.margin
 
         self.fig = plt.figure(figsize=dims)
         self.ax = self.fig.add_subplot(111)
-        self.ax.grid(True)
-        self.ax.set_xlim(self.start[0] - self.margin, self.goal[0] + self.margin)
-        self.ax.set_ylim(self.start[1] - self.margin, self.goal[1] + self.margin)
         self.ax.set_aspect('equal', 'box')
+        self.set_xylim()
+        self.ax.grid(True)
 
         # Color
         self.colors = {}
@@ -32,18 +33,25 @@ class Viz:
         self.colors["node_sampling"] = tuple(map(lambda x: x/255, (93, 94, 94, 150)))
         self.colors["edge_sampling"] = tuple(map(lambda x: x/255, (170, 170, 170, 150)))
 
+        # Plot
+        self.draw_startgoal()
         # Formatting
         self.node_rad = 2
 
-        # Draw intial map
+        self.path_col = None
+    
+    def set_xylim(self):
+        self.ax.set_xlim(self.start[0] - self.margin, self.goal[0] + self.margin)
+        self.ax.set_ylim(self.start[1] - self.margin, self.goal[1] + self.margin)
+
+
+    def draw_startgoal(self):
         self.start_obj = mpatches.Rectangle((self.start[0] - 5, self.start[1] - 5), 10, 10, color=self.colors["start"])
         self.ax.add_patch(self.start_obj)
         self.goal_obj = mpatches.Circle(self.goal, 5, color=self.colors["goal"])
         self.ax.add_patch(self.goal_obj)
 
-        self.path_col = None
 
-    
     def draw_map(self, obs):
         for ob in obs:
             self.ax.add_patch(ob)

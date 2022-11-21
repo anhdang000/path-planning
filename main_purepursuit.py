@@ -9,8 +9,10 @@ from cv2 import aruco
 import numpy as np
 import math
 from scipy.spatial import distance
+import matplotlib.pyplot as plt
 
 from RRTbase import RRTGraph
+from purepursuit import PurePursuit
 
 
 class Camera2RRT:
@@ -41,6 +43,7 @@ class Camera2RRT:
         # Robot & Goal
         self.rbt_info = {}
         self.goal_info = {}
+        self.rbt_positions = []
 
         # Obs
         self.obs_size = 10
@@ -91,9 +94,20 @@ class Camera2RRT:
         curr_rbt = self.rbt_info.copy()
         while True:
             change_dist = distance.euclidean((curr_rbt["x"], curr_rbt["y"]), (self.rbt_info["x"], self.rbt_info["y"]))
-            if change_dist > self.dist_thresh:
-                self.graph.ax.plot(self.rbt_info["x"], self.rbt_info["y"], 'o', color='r')
-                self.graph.pause()
+            if change_dist > self.dist_thresh and not self.reach_goal:
+                pure_pursuit = PurePursuit(self.path[::-1], ax=self.graph.ax, followerSpeed=12, lookaheadDistance=7)
+                pure_pursuit.add_follower(curr_rbt["x"], curr_rbt["y"], curr_rbt["ang"])
+
+                for _ in range(2):
+                    pure_pursuit.draw()
+                    self.graph.set_xylim()
+                    self.graph.draw_startgoal()
+                    self.graph.draw_map(self.graph.obstacles)
+
+                    self.graph.pause()
+
+                if not plt.fignum_exists(1):
+                    break
                 curr_rbt = self.rbt_info.copy()
 
 
@@ -149,7 +163,7 @@ class Camera2RRT:
                         self.rbt_info["x"] = tVec[i][0][0]
                         self.rbt_info["y"] = -tVec[i][0][1]
                         self.rbt_info["ang"] = rVec[i][0][0]
-
+                        self.rbt_positions.append([self.rbt_info["x"], self.rbt_info["y"]])
                         self.start = (self.rbt_info["x"], self.rbt_info["y"])
 
                     elif ids[0] == 50:
@@ -188,23 +202,13 @@ class Camera2RRT:
                             self.obs_points = obs_pts
 
                 if self.is_planned:
-                    self.dist_err = distance.euclidean((self.rbt_info["x"], self.rbt_info["y"]), self.path[self.target_waypoint_idx])
-                    self.target_pose = math.degrees(math.atan2(
-                        self.goal_info["y"] - self.rbt_info["y"], 
-                        self.goal_info["x"] - self.rbt_info["x"]
-                        ))
-                    # print(f'dist_err: {self.dist_err}\ttarget_pose: {self.target_pose}')
-
                     dist2goal = distance.euclidean((self.rbt_info["x"], self.rbt_info["y"]), (self.goal_info["x"], self.goal_info["y"]))
                     if dist2goal > self.dist_thresh:
-                        f = open("transfer_data.txt", "a")
-                        f.write(f"{self.dist_err:.2f} {self.target_pose:.2f}\n")
-                        f.close()
+                        pass
                     else:
-                        self.dist_err, self.target_pose = 0, 0
                         self.reach_goal = True
                         f = open("transfer_data.txt", "a")
-                        f.write(f"{self.dist_err:.2f} {self.target_pose:.2f}\n")
+                        f.write("0 0\n")
                         f.close()
 
                     if self.dist_err < self.dist_thresh:
@@ -215,7 +219,7 @@ class Camera2RRT:
             if key == ord("q"):
                 break
 
-    
+
     def run(self):
         # t1 = threading.Thread(target=self.plan_and_plot, args=())
         t2 = threading.Thread(target=self.process_frame, args=())
@@ -232,3 +236,16 @@ class Camera2RRT:
 if __name__ == "__main__":
     planner = Camera2RRT()
     planner.run()
+
+
+
+    #     pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=12, lookaheadDistance=50)
+    #     pure_pursuit.add_follower(path[-1][0], path[-1][1])
+
+    #     for _ in range(100):
+    #         pure_pursuit.draw()
+    #         graph.pause()
+
+
+    #     if not plt.fignum_exists(1):
+    #         break
