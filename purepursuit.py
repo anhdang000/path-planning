@@ -38,7 +38,7 @@ class PathFollower(object):
         print(f'v_l = {v_l:.2f}\tv_r = {v_r:.2f}')
 
         f = open("transfer_data.txt", "a")
-        f.write(f"{v_l:.2f} {v_r:.2f}\n")
+        f.write(f"v {v_l:.2f} {v_r:.2f}\n")
         f.close()
 
     def get_pos(self):
@@ -53,40 +53,37 @@ class PurePursuit(object):
         self.followerSpeed = followerSpeed
         self.followerStopDistance = followerStopDistance
         self.ax = ax
-        self.followers = []
+        self.follower = None
 
     def draw(self):
         self.ax.clear()
         xs, ys = zip(*self.path)
         self.ax.plot(xs, ys)
-        for f in self.followers:
-            if f.is_dead:
-                continue
-            pos = f.get_pos()
-            lookahead = self.get_lookahead_pt(
-                pos[0], pos[1], self.lookaheadDistance)
-            self.ax.scatter(pos[0], pos[1], c='b')
-            xs, ys = zip(*f.history)
-            self.ax.plot(xs, ys, linestyle=':')
-            if lookahead != None:
-                self.ax.scatter(lookahead[0], lookahead[1], c='r')
-                delta = lookahead[0] - pos[0], lookahead[1] - pos[1]
-                dist = 2 * (delta[0] ** 2 + delta[1] ** 2) ** 0.5
-                self.ax.add_artist(plt.Circle(pos, dist/2, fill=False))
-                self.ax.plot((pos[0], lookahead[0]), (pos[1], lookahead[1]), linestyle='--')
 
-                if dist < self.followerStopDistance:
-                    f.is_dead = True
-                    f = open("transfer_data.txt", "a")
-                    f.write("0.00 0.00\n")
-                    f.close()
-                   
-                else:
-                    f.move_torwards(lookahead[0], lookahead[1], dist, self.followerSpeed)
+        pos = self.follower.get_pos()
+        lookahead = self.get_lookahead_pt(
+            pos[0], pos[1], self.lookaheadDistance)
+        self.ax.scatter(pos[0], pos[1], c='b')
+        xs, ys = zip(*self.follower.history)
+        self.ax.plot(xs, ys, linestyle=':')
+        if lookahead != None:
+            self.ax.scatter(lookahead[0], lookahead[1], c='r')
+            delta = lookahead[0] - pos[0], lookahead[1] - pos[1]
+            dist = 2 * (delta[0] ** 2 + delta[1] ** 2) ** 0.5
+            self.ax.add_artist(plt.Circle(pos, dist/2, fill=False))
+            self.ax.plot((pos[0], lookahead[0]), (pos[1], lookahead[1]), linestyle='--')
 
-    def add_follower(self, x, y):
-        self.followers.append(PathFollower(
-            x, y, self.followerSpeed))
+            if dist < self.followerStopDistance:
+                self.follower.is_dead = True
+                f = open("transfer_data.txt", "a")
+                f.write("v 0 0\n")
+                f.close()
+                
+            else:
+                self.follower.move_torwards(lookahead[0], lookahead[1], dist, self.followerSpeed)
+
+    def set_follower(self, x, y):
+        self.follower = PathFollower(x, y, self.followerSpeed)
 
     def sign(self, n):
         if n == 0:

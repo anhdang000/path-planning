@@ -16,6 +16,10 @@ class Viz:
         self.map_w = self.goal[0] - self.start[0] + 2*self.margin
         self.map_h = self.goal[1] - self.start[1] + 2*self.margin
 
+        self.xlim = [self.start[0] - self.margin, self.goal[0] + self.margin]
+        self.ylim = [self.start[1] - self.margin, self.goal[1] + self.margin]
+
+
         self.fig = plt.figure(figsize=dims)
         self.ax = self.fig.add_subplot(111)
         self.ax.set_aspect('equal', 'box')
@@ -33,16 +37,13 @@ class Viz:
         self.colors["node_sampling"] = tuple(map(lambda x: x/255, (93, 94, 94, 150)))
         self.colors["edge_sampling"] = tuple(map(lambda x: x/255, (170, 170, 170, 150)))
 
-        # Plot
-        self.draw_startgoal()
         # Formatting
         self.node_rad = 2
 
-        self.path_col = None
     
     def set_xylim(self):
-        self.ax.set_xlim(self.start[0] - self.margin, self.goal[0] + self.margin)
-        self.ax.set_ylim(self.start[1] - self.margin, self.goal[1] + self.margin)
+        self.ax.set_xlim(self.xlim[0], self.xlim[1])
+        self.ax.set_ylim(self.ylim[0], self.ylim[1])
 
 
     def draw_startgoal(self):

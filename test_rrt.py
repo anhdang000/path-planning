@@ -8,6 +8,7 @@ import math
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+import scipy.interpolate
 
 from RRTbase import RRTGraph
 from purepursuit import PurePursuit
@@ -15,12 +16,75 @@ from purepursuit import PurePursuit
 
 def main():
     start = (50, 50)
-    goal = (250, 250)
-    obs_dim = 50
-    num_obs = 7
+    good = (100, 250)
+    goal = (350, 350)
+    obs_dim = 40
+    num_obs = 1
 
     graph = RRTGraph(start, goal, obs_dim, num_obs)
     obs = graph.make_random_obs()
+    graph.draw_map(obs)
+
+    # Stage 1: Start -> Good
+    graph.set_new_plan(start, good)
+    graph.draw_startgoal()
+
+    iteration = 0
+    while not graph.path_to_goal():
+        if iteration % 5 == 0:
+            X, Y, Parent = graph.bias(goal)
+            graph.draw_edge((X[-1], Y[-1]), (X[Parent[-1]], Y[Parent[-1]]))
+            graph.draw_node((X[-1], Y[-1]))
+        else:
+            X, Y, Parent = graph.expand()
+            graph.draw_edge((X[-1], Y[-1]), (X[Parent[-1]], Y[Parent[-1]]))
+            graph.draw_node((X[-1], Y[-1]))
+        
+        if iteration % 5 == 0:
+            graph.pause()
+
+        iteration += 1
+
+    path = graph.get_path_coords()
+    path = graph.optimize_path(path)
+    graph.draw_path(path)
+
+    # theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
+    # print(f'Theta: {math.degrees(theta):.2f}')
+
+    # f = open("transfer_data.txt", "a")
+    # f.write(f"r {math.degrees(theta):.2f}\n")
+    # f.close()
+    # time.sleep(1)
+
+    pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=35, lookaheadDistance=12)
+    pure_pursuit.set_follower(path[-1][0], path[-1][1])
+    # pure_pursuit.follower.theta = theta
+
+    for i in range(1000):
+        pure_pursuit.draw()
+
+        if pure_pursuit.follower.is_dead:
+            theta = pure_pursuit.follower.theta
+            print(f'Good reached')
+            break
+
+        graph.set_xylim()
+        graph.draw_startgoal()
+        graph.draw_map(graph.obstacles)
+
+        graph.pause()
+
+        if not plt.fignum_exists(1):
+            f = open("transfer_data.txt", "a")
+            f.write("v 0 0\n")
+            f.close()
+            break
+
+    # Stage 2: Good -> Goal
+    graph.set_new_plan(good, goal)
+    graph.draw_startgoal()
+    graph.set_xylim()
     graph.draw_map(obs)
 
     iteration = 0
@@ -43,8 +107,17 @@ def main():
     path = graph.optimize_path(path)
     graph.draw_path(path)
 
+    # theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
+    # print(f'Theta: {math.degrees(theta):.2f}')
+
+    # f = open("transfer_data.txt", "a")
+    # f.write(f"r {math.degrees(theta):.2f}\n")
+    # f.close()
+    # time.sleep(1)
+
     pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=35, lookaheadDistance=12)
-    pure_pursuit.add_follower(path[-1][0], path[-1][1])
+    pure_pursuit.set_follower(path[-1][0], path[-1][1])
+    pure_pursuit.follower.theta = theta
 
     for i in range(1000):
         pure_pursuit.draw()
@@ -52,14 +125,21 @@ def main():
         graph.draw_startgoal()
         graph.draw_map(graph.obstacles)
 
+        if pure_pursuit.follower.is_dead:
+            print(f'Goal reached')
+            break
+
         graph.pause()
 
         if not plt.fignum_exists(1):
             f = open("transfer_data.txt", "a")
-            f.write("0.00 0.00\n")
+            f.write("v 0 0\n")
             f.close()
             break
 
     graph.show()
+
+
+
 if __name__ == "__main__":
     main()

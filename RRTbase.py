@@ -32,6 +32,18 @@ class RRTGraph(Viz):
         self.goal_state = None
         self.path = []
 
+
+    def set_new_plan(self, start, goal):
+        self.start = start
+        self.goal = goal
+        self.X = [start[0]]
+        self.Y = [start[1]]
+        self.parent = [0]
+        self.goal_state = None
+        self.goal_flag = False
+        self.path = []
+
+        
     def random_point(self):
         x = int(random.uniform(0, self.map_w))
         y = int(random.uniform(0, self.map_h))
@@ -44,7 +56,8 @@ class RRTGraph(Viz):
             while start_goal_col:
                 center = self.random_point()
                 ob = mpatches.Circle(center, self.obs_dim, facecolor=self.colors["obstacle"], edgecolor='g')
-                if any(ob.contains_points([self.start, self.goal])):
+                if distance.euclidean(center, self.start) <= self.obs_dim or \
+                    distance.euclidean(center, self.goal) <= self.obs_dim:
                     start_goal_col = True
                 else:
                     start_goal_col = False
@@ -202,7 +215,7 @@ class RRTGraph(Viz):
                     second_idx = second_idx + 1
             if second_idx == num_points - 1:
                 break
-        return optimal_path
+        return np.array(optimal_path).tolist()
 
 
         

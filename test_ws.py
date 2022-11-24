@@ -4,11 +4,11 @@ import time
 
 
 async def handler(websocket):
-    msgs = ['25 30\n', '24 45\n', '15 45\n']
+    msgs = ['r 30\n', 'v 24.52 24.34\n']
     while True:
         for msg in msgs:
             await websocket.send(msg)
-            time.sleep(0.8)
+            time.sleep(0.1)
 
 
 async def main():

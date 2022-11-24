@@ -21,8 +21,10 @@ def log_generator(filename, period=0.1):
 async def handler(websocket):
     x = log_generator("transfer_data.txt")
     for lines in x:
+        # msg = await websocket.recv()
+        # print(f"Receive: {msg}")
         if len(lines) > 0:
-            print(lines[-1])
+            print(f"Send: {lines[-1]}")
             await websocket.send(lines[-1] + '\n')
 
 
