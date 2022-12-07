@@ -1,2 +1,3 @@
-rm transfer_data.txt
-touch transfer_data.txt
+rm transfer_data/*
+touch transfer_data/send.txt
+touch transfer_data/receive.
