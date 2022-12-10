@@ -46,7 +46,15 @@ class PathFollower(object):
 
 
 class PurePursuit(object):
-    def __init__(self, path, lookaheadDistance=2, lookaheadDistanceDelta=2.5, followerSpeed=1, followerStopDistance=15, ax=None):
+    def __init__(
+        self, 
+        path, 
+        lookaheadDistance=2, 
+        lookaheadDistanceDelta=2.5, 
+        followerSpeed=1, 
+        followerStopDistance=15, 
+        ax=None
+        ):
         self.path = path
         self.lookaheadDistance = lookaheadDistance
         self.lookaheadDistanceDelta = lookaheadDistanceDelta
@@ -82,7 +90,7 @@ class PurePursuit(object):
             else:
                 self.follower.move_torwards(lookahead[0], lookahead[1], dist, self.followerSpeed)
 
-    def set_follower(self, x, y, theta):
+    def set_follower(self, x, y, theta=np.pi/2):
         self.follower = PathFollower(x, y, theta=theta)
 
     def sign(self, n):

@@ -1,7 +1,7 @@
 import sys
 import os
 import os.path as osp
-
+import time
 import threading
 
 import cv2
@@ -11,19 +11,32 @@ import math
 from scipy.spatial import distance
 import matplotlib.pyplot as plt
 
+from easyEEZYbotARM.kinematic_model import EEZYbotARM_Mk2
+from easyEEZYbotARM.serial_communication import arduinoController
+
 from modules import RRTGraph, PurePursuit, Camera
+from utils import log_generator
 
 
 class Camera2RRT(Camera):
-    def __init__(self):
+    def __init__(self, with_rotate=False):
         # Planner
         self.graph = None
         self.path = None
+
+        # Robot arm
+        self.robot_arm = EEZYbotARM_Mk2(initial_q1=0, initial_q2=90, initial_q3=-130)
+        self.arduino = arduinoController()
+        self.servoAngle_EE_closed = 10
+        self.servoAngle_EE_open = 90
 
         # Obs
         self.obs_size = 10
         self.obs_points = []
         self.num_obs = 1
+
+        # Line tracking
+        self.with_rotate = with_rotate
         
 
     def core_planning(self, start, goal):
@@ -57,12 +70,24 @@ class Camera2RRT(Camera):
         self.graph.draw_path(self.path)
 
     
-    def plan_a_track(self, start, goal):
+    def plan_a_track(self, start, goal, previous_theta=None):
         # Plan
         self.core_planning(start, goal)
 
-        # Plot current robot position
-        theta = np.pi/2
+        # Plot and conduct pure-pursuit
+        if self.with_rotate:
+            theta = math.atan2(
+                self.path[-2][1] - self.path[-1][1], 
+                self.path[-2][0] - self.path[-1][0]
+                )
+            f = open("transfer_data/send.txt", "a")
+            f.write(f"r {math.degrees(theta):.2f}\n")
+            f.close()
+            print(f'Send target pose: {math.degrees(theta):.2f}')
+            time.sleep(1)
+        else:
+            theta = previous_theta
+
         while True:
             pure_pursuit = PurePursuit(
                 self.path[::-1], 
@@ -70,6 +95,7 @@ class Camera2RRT(Camera):
                 followerSpeed=40, 
                 lookaheadDistance=30
                 )
+
             pure_pursuit.set_follower(
                 self.components['robot'][0], 
                 self.components['robot'][1],
@@ -84,12 +110,62 @@ class Camera2RRT(Camera):
 
                 self.graph.pause()
 
+            if pure_pursuit.follower.is_dead:
+                print(f'Destination reached')
+                break
+
             theta = pure_pursuit.follower.theta
+
             if not plt.fignum_exists(1):
                 f = open("transfer_data/send.txt", "a")
                 f.write("v 0 0\n")
                 f.close()
                 break
+        return theta
+
+    
+    def get_rbt_pose(self):
+        log_follow = log_generator("transfer_data/receive.txt")
+        for lines in log_follow:
+            if len(lines) > 0:
+                return float(lines[-1]) 
+
+    def compute_to_pick(self):
+        """
+            1. Get current robot and good position 
+            2. (Optional) Calculate target pose and send to client for robot to straightly head to good
+            3. Read current robot pose
+            4. Compute (x, y) of good in arm coordinate
+            5. Compute inverse kinematic and send data to client
+        """
+        rbt2good = distance.euclidean(
+            self.components['robot'], 
+            self.components['good']
+            )
+        rbt2good_ang = math.atan2(
+            self.components['good'][1] - self.components['robot'][1],
+            self.components['good'][0] - self.components['robot'][0]
+            )
+
+        # delta_ang = rbt2good_ang - pure_pursuit.follower.theta
+        rbt_pose = self.get_rbt_pose()
+        delta_ang = rbt2good_ang - rbt_pose
+        arm_x = rbt2good * math.cos(delta_ang) * 10
+        arm_y = rbt2good * math.sin(delta_ang) * 10
+        arm_z = 150
+        a1, a2, a3 = self.robot_arm.inverseKinematics(arm_x, arm_y, arm_z)
+        self.robot_arm.updateJointAngles(q1=a1, q2=a2, q3=a3)
+        servo_q1, servo_q2, servo_q3 = self.robot_arm.map_kinematicsToServoAngles()
+        msg = self.arduino.composeMessage(
+            servoAngle_q1=servo_q1, 
+            servoAngle_q2=servo_q2, 
+            servoAngle_q3=servo_q3, 
+            servoAngle_EE=self.servoAngle_EE_open
+            )
+
+        f = open("transfer_data/send.txt", "a")
+        f.write(msg + "\n")
+        f.close()
 
 
     def plan_and_plot(self):
@@ -104,12 +180,16 @@ class Camera2RRT(Camera):
         self.graph.draw_map(obs)
 
         tracks = [['robot', 'good'], ['good', 'goal']]
+        theta = np.pi/2
         for track in tracks:
-            self.plan_a_track(
+            theta = self.plan_a_track(
                 self.components[track[0]], 
-                self.components[track[1]]
+                self.components[track[1]],
+                previous_theta=theta
                 )
-
+            if track[1] == 'good':
+                self.compute_to_pick()
+            
 
     def process_frame(self):
         while True:
@@ -134,18 +214,5 @@ class Camera2RRT(Camera):
 
         
 if __name__ == "__main__":
-    planner = Camera2RRT()
+    planner = Camera2RRT(with_rotate=False)
     planner.run()
-
-
-
-    #     pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=12, lookaheadDistance=50)
-    #     pure_pursuit.add_follower(path[-1][0], path[-1][1])
-
-    #     for _ in range(100):
-    #         pure_pursuit.draw()
-    #         graph.pause()
-
-
-    #     if not plt.fignum_exists(1):
-    #         break

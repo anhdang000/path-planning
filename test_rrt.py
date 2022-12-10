@@ -88,29 +88,6 @@ def main():
             f.write("v 0 0\n")
             f.close()
             break
-
-    rbt2good = distance.euclidean(pure_pursuit.follower.position, good)
-    rbt2good_ang = math.atan2(
-        good[1] - pure_pursuit.follower.position[1],
-        good[0] - pure_pursuit.follower.position[0]
-        )
-    delta_ang = rbt2good_ang - pure_pursuit.follower.theta
-    arm_x = rbt2good * math.cos(delta_ang) * 10
-    arm_y = rbt2good * math.sin(delta_ang) * 10
-    arm_z = 150
-    a1, a2, a3 = myRobotArm.inverseKinematics(arm_x, arm_y, arm_z)
-    myRobotArm.updateJointAngles(q1=a1, q2=a2, q3=a3)
-    servo_q1, servo_q2, servo_q3 = myRobotArm.map_kinematicsToServoAngles()
-    msg = myArduino.composeMessage(
-        servoAngle_q1=servo_q1, 
-        servoAngle_q2=servo_q2, 
-        servoAngle_q3=servo_q3, 
-        servoAngle_EE=servoAngle_EE_open
-        )
-
-    f = open("transfer_data/send.txt", "a")
-    f.write(msg + "\n")
-    f.close()
     
     # Stage 2: Good -> Goal
     graph.set_new_plan(good, goal)
