@@ -9,21 +9,17 @@ from cv2 import aruco
 import numpy as np
 
 calib_data_path = "calib_data/MultiMatrix.npz"
-
 calib_data = np.load(calib_data_path)
-
 cam_mat = calib_data["camMatrix"]
 dist_coef = calib_data["distCoef"]
 r_vectors = calib_data["rVector"]
 t_vectors = calib_data["tVector"]
 
 MARKER_SIZE = 9.7  # centimeters
-
 marker_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
-
 param_markers = aruco.DetectorParameters_create()
-cap = cv.VideoCapture(1)
 
+cap = cv.VideoCapture(1)
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -106,12 +102,12 @@ while True:
                 ))
             print(f'rbt_ang: {math.degrees(rbt_info["ang"]):.2f}\ttarget_ang: {target_ang:.2f}')
             dist = math.sqrt(((rbt_info["x"] - goal_info["x"])**2 + (rbt_info["y"] - goal_info["y"])**2))
-            f = open("transfer_data.txt", "a")
+            f = open("transfer_data/send.txt", "a")
             f.write(f"{dist:.2f} {target_ang:.2f}\n")
             # print(f"Dist: {dist:.2f}\tTarget ang: {target_ang:.2f}")
             f.close()
         else:
-            f = open("transfer_data.txt", "a")
+            f = open("transfer_data/send.txt", "a")
             f.write(f"0 0\n")
             print(f"Objects not found!")
             f.close()

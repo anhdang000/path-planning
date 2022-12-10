@@ -7,12 +7,11 @@ from datetime import datetime
 import math
 import numpy as np
 import random
-from scipy.spatial import distance
 import matplotlib.pyplot as plt
+import scipy.interpolate
 
-from easyEEZYbotARM.kinematic_model import EEZYbotARM_Mk2
-from easyEEZYbotARM.serial_communication import arduinoController
-from modules import RRTGraph, PurePursuit, Camera
+from RRTbase import RRTGraph
+from purepursuit import PurePursuit
 
 
 def main():
@@ -22,12 +21,6 @@ def main():
     obs_dim = 20
     num_obs = 2
     obs_pts = [(80, 150), (250, 300)]
-
-    myRobotArm = EEZYbotARM_Mk2(initial_q1=0, initial_q2=90, initial_q3=-130)
-    myArduino = arduinoController()
-    servoAngle_EE_closed = 10
-    servoAngle_EE_open = 90
-
     graph = RRTGraph(start, goal, good, obs_dim, num_obs)
     # obs = graph.make_random_obs()
     obs = graph.make_obs(obs_pts)
@@ -57,23 +50,22 @@ def main():
     path = graph.optimize_path(path)
     graph.draw_path(path)
 
-    # theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
-    # print(f'Theta: {math.degrees(theta):.2f}')
+    theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
+    print(f'Theta: {math.degrees(theta):.2f}')
 
-    # f = open("transfer_data/send.txt", "a")
-    # f.write(f"r {math.degrees(theta):.2f}\n")
-    # f.close()
-    # time.sleep(1)
+    f = open("transfer_data/send.txt", "a")
+    f.write(f"r {math.degrees(theta):.2f}\n")
+    f.close()
+    time.sleep(1)
 
-    pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=40, lookaheadDistance=30)
+    pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=40, lookaheadDistance=20)
     pure_pursuit.set_follower(path[-1][0], path[-1][1])
-    # pure_pursuit.follower.theta = theta
+    pure_pursuit.follower.theta = theta
 
     for i in range(1000):
         pure_pursuit.draw()
 
         if pure_pursuit.follower.is_dead:
-            theta = pure_pursuit.follower.theta
             print(f'Good reached')
             break
 
@@ -89,29 +81,6 @@ def main():
             f.close()
             break
 
-    rbt2good = distance.euclidean(pure_pursuit.follower.position, good)
-    rbt2good_ang = math.atan2(
-        good[1] - pure_pursuit.follower.position[1],
-        good[0] - pure_pursuit.follower.position[0]
-        )
-    delta_ang = rbt2good_ang - pure_pursuit.follower.theta
-    arm_x = rbt2good * math.cos(delta_ang) * 10
-    arm_y = rbt2good * math.sin(delta_ang) * 10
-    arm_z = 150
-    a1, a2, a3 = myRobotArm.inverseKinematics(arm_x, arm_y, arm_z)
-    myRobotArm.updateJointAngles(q1=a1, q2=a2, q3=a3)
-    servo_q1, servo_q2, servo_q3 = myRobotArm.map_kinematicsToServoAngles()
-    msg = myArduino.composeMessage(
-        servoAngle_q1=servo_q1, 
-        servoAngle_q2=servo_q2, 
-        servoAngle_q3=servo_q3, 
-        servoAngle_EE=servoAngle_EE_open
-        )
-
-    f = open("transfer_data/send.txt", "a")
-    f.write(msg + "\n")
-    f.close()
-    
     # Stage 2: Good -> Goal
     graph.set_new_plan(good, goal)
     graph.draw_startgoal()
@@ -138,15 +107,16 @@ def main():
     path = graph.optimize_path(path)
     graph.draw_path(path)
 
-    # theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
-    # print(f'Theta: {math.degrees(theta):.2f}')
+    theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
+    print(f'Theta: {math.degrees(theta):.2f}')
 
-    # f = open("transfer_data/send.txt", "a")
-    # f.write(f"r {math.degrees(theta):.2f}\n")
-    # f.close()
-    # time.sleep(1)
+    f = open("transfer_data/send.txt", "a")
+    for _ in range(10):
+        f.write(f"r {math.degrees(theta):.2f}\n")
+    f.close()
+    time.sleep(1)
 
-    pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=40, lookaheadDistance=30)
+    pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=40, lookaheadDistance=20)
     pure_pursuit.set_follower(path[-1][0], path[-1][1])
     pure_pursuit.follower.theta = theta
 

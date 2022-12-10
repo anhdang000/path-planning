@@ -11,50 +11,19 @@ import math
 from scipy.spatial import distance
 import matplotlib.pyplot as plt
 
-from RRTbase import RRTGraph
-from purepursuit import PurePursuit
+from modules import RRTGraph, PurePursuit, Camera
 
 
-class Camera2RRT:
+class Camera2RRT(Camera):
     def __init__(self):
         # Planner
         self.graph = None
         self.path = None
-        self.is_planned = False
-
-        # Environment
-        self.start = None
-        self.goal = None
-
-        # Camera configurations
-        self.calib_data_path = "calib_data/MultiMatrix.npz"
-        calib_data = np.load(self.calib_data_path)
-        self.cam_mat = calib_data["camMatrix"]
-        self.dist_coef = calib_data["distCoef"]
-
-        # Aruco
-        self.cap = cv2.VideoCapture(1)
-        self.marker_size = 20
-        self.marker_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
-        self.param_markers = aruco.DetectorParameters_create()
-
-        # Robot & Goal
-        self.rbt_info = {}
-        self.goal_info = {}
-        self.rbt_positions = []
 
         # Obs
         self.obs_size = 10
         self.obs_points = []
         self.num_obs = 1
-
-        # Errors for sending
-        self.dist_err = 0
-        self.target_pose = 0
-        
-        # Boolean states
-        self.is_goal_read = False
-        self.is_obs_read = False
         
 
     def core_planning(self, start, goal):
@@ -87,39 +56,59 @@ class Camera2RRT:
         self.path = self.graph.optimize_path(self.path)
         self.graph.draw_path(self.path)
 
+    
+    def plan_a_track(self, start, goal):
+        # Plan
+        self.core_planning(start, goal)
+
+        # Plot current robot position
+        theta = np.pi/2
+        while True:
+            pure_pursuit = PurePursuit(
+                self.path[::-1], 
+                ax=self.graph.ax, 
+                followerSpeed=40, 
+                lookaheadDistance=30
+                )
+            pure_pursuit.set_follower(
+                self.components['robot'][0], 
+                self.components['robot'][1],
+                theta
+                )
+
+            for _ in range(2):
+                pure_pursuit.draw()
+                self.graph.set_xylim()
+                self.graph.draw_startgoal()
+                self.graph.draw_map(self.graph.obstacles)
+
+                self.graph.pause()
+
+            theta = pure_pursuit.follower.theta
+            if not plt.fignum_exists(1):
+                f = open("transfer_data/send.txt", "a")
+                f.write("v 0 0\n")
+                f.close()
+                break
+
 
     def plan_and_plot(self):
-        while not (self.is_goal_read and self.is_obs_read and self.start and self.goal):
+        while not all(self.components.values()):
             pass # Wait until all components on the map are detected
 
-        self.graph = RRTGraph(self.start, self.goal, self.obs_size, self.num_obs)
-        obs = self.graph.make_obs(self.obs_points)
+        start = self.components['robot']
+        goal = self.components['good']
+
+        self.graph = RRTGraph(start, goal, self.obs_size, self.num_obs)
+        obs = self.graph.make_obs(self.components['obs'])
         self.graph.draw_map(obs)
 
-        self.core_planning(self.start, self.goal)
-        
-        # Plot current robot position
-        curr_rbt = self.rbt_info.copy()
-        while True:
-            change_dist = distance.euclidean((curr_rbt["x"], curr_rbt["y"]), (self.rbt_info["x"], self.rbt_info["y"]))
-            if change_dist > self.dist_thresh and not self.reach_goal:
-                pure_pursuit = PurePursuit(self.path[::-1], ax=self.graph.ax, followerSpeed=40, lookaheadDistance=30)
-                pure_pursuit.add_follower(curr_rbt["x"], curr_rbt["y"], curr_rbt["ang"])
-
-                for _ in range(2):
-                    pure_pursuit.draw()
-                    self.graph.set_xylim()
-                    self.graph.draw_startgoal()
-                    self.graph.draw_map(self.graph.obstacles)
-
-                    self.graph.pause()
-
-                if not plt.fignum_exists(1):
-                    f = open("transfer_data/send.txt", "a")
-                    f.write("v 0 0\n")
-                    f.close()
-                    break
-                curr_rbt = self.rbt_info.copy()
+        tracks = [['robot', 'good'], ['good', 'goal']]
+        for track in tracks:
+            self.plan_a_track(
+                self.components[track[0]], 
+                self.components[track[1]]
+                )
 
 
     def process_frame(self):
@@ -127,90 +116,9 @@ class Camera2RRT:
             ret, frame = self.cap.read()
             if not ret:
                 break
-            obs_pts = []
-            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            marker_corners, marker_IDs, _ = aruco.detectMarkers(
-                gray_frame, self.marker_dict, parameters=self.param_markers
-            )
-            if {33, 50}.issubset(set(marker_IDs.flatten().tolist())):
-                rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
-                    marker_corners, self.marker_size, self.cam_mat, self.dist_coef
-                ) 
-                total_markers = range(0, marker_IDs.size)
-                
-                for ids, corners, i in zip(marker_IDs, marker_corners, total_markers):
-                    cv2.polylines(
-                        frame, [corners.astype(np.int32)], True, (0, 255, 255), 4, cv2.LINE_AA
-                    )
-                    corners = corners.reshape(4, 2)
-                    corners = corners.astype(int)
-                    top_right = corners[0].ravel()
-                    bottom_right = corners[2].ravel()
 
-                    # Draw the pose of the marker
-                    cv2.drawFrameAxes(frame, self.cam_mat, self.dist_coef, rVec[i], tVec[i], self.marker_size, 4)
-                    cv2.putText(
-                        frame,
-                        f"x:{round(tVec[i][0][0],1)} y: {round(tVec[i][0][1],1)} ",
-                        bottom_right,
-                        cv2.FONT_HERSHEY_PLAIN,
-                        1.0,
-                        (0, 0, 255),
-                        1.5,
-                        cv2.LINE_AA,
-                    )
-
-                    if ids[0] == 33:
-                        cv2.putText(
-                        frame,
-                        f"Robot",
-                        top_right,
-                        cv2.FONT_HERSHEY_PLAIN,
-                        1,
-                        (0, 0, 255),
-                        1.5,
-                        cv2.LINE_AA,
-                        )
-                        self.rbt_info["x"] = tVec[i][0][0]
-                        self.rbt_info["y"] = -tVec[i][0][1]
-                        self.rbt_info["ang"] = rVec[i][0][0]
-                        self.rbt_positions.append([self.rbt_info["x"], self.rbt_info["y"]])
-                        self.start = (self.rbt_info["x"], self.rbt_info["y"])
-
-                    elif ids[0] == 50:
-                        cv2.putText(
-                        frame,
-                        f"Goal",
-                        top_right,
-                        cv2.FONT_HERSHEY_PLAIN,
-                        1,
-                        (0, 0, 255),
-                        1.5,
-                        cv2.LINE_AA,
-                        )
-                        if not self.is_goal_read:
-                            self.goal_info["x"] = tVec[i][0][0]
-                            self.goal_info["y"] = -tVec[i][0][1]
-                        
-                            self.is_goal_read = True
-
-                            self.goal = (self.goal_info["x"], self.goal_info["y"])
-
-                    elif ids[0] == 56 and not self.is_obs_read:
-                        cv2.putText(
-                        frame,
-                        f"Obstacle",
-                        top_right,
-                        cv2.FONT_HERSHEY_PLAIN,
-                        1,
-                        (0, 0, 255),
-                        1.5,
-                        cv2.LINE_AA,
-                        )
-                        obs_pts.append((tVec[i][0][0], -tVec[i][0][1]))
-                        if len(obs_pts) == self.num_obs:
-                            self.is_obs_read = True
-                            self.obs_points = obs_pts
+            self.detect_color_obj(frame)
+            self.detect_markers(frame)
 
             cv2.imshow("Camera", frame)
             key = cv2.waitKey(1)
@@ -219,16 +127,10 @@ class Camera2RRT:
 
 
     def run(self):
-        # t1 = threading.Thread(target=self.plan_and_plot, args=())
-        t2 = threading.Thread(target=self.process_frame, args=())
+        t1 = threading.Thread(target=self.process_frame, args=())
+        t1.start()
 
-        # t1.start()
-        t2.start()
-
-        # t1.join()
         self.plan_and_plot()
-        t2.join()
-
 
         
 if __name__ == "__main__":

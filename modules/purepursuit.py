@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 
 
 class PathFollower(object):
-    def __init__(self, x, y, speed):
+    def __init__(self, x, y, theta=np.pi/2):
         self.position = (x, y)
-        self.theta = np.pi / 4
-        self.wheelbase = 15
+        self.theta = theta
+        self.wheelbase = 20
         self.history = [self.position]
         self.is_dead = False
 
@@ -37,7 +37,7 @@ class PathFollower(object):
         v_r = speed * (1 + 0.7 * np.tan(steering_angle))
         print(f'v_l = {v_l:.2f}\tv_r = {v_r:.2f}')
 
-        f = open("transfer_data.txt", "a")
+        f = open("transfer_data/send.txt", "a")
         f.write(f"v {v_l:.2f} {v_r:.2f}\n")
         f.close()
 
@@ -75,15 +75,15 @@ class PurePursuit(object):
 
             if dist < self.followerStopDistance:
                 self.follower.is_dead = True
-                f = open("transfer_data.txt", "a")
+                f = open("transfer_data/send.txt", "a")
                 f.write("v 0 0\n")
                 f.close()
                 
             else:
                 self.follower.move_torwards(lookahead[0], lookahead[1], dist, self.followerSpeed)
 
-    def set_follower(self, x, y):
-        self.follower = PathFollower(x, y, self.followerSpeed)
+    def set_follower(self, x, y, theta):
+        self.follower = PathFollower(x, y, theta=theta)
 
     def sign(self, n):
         if n == 0:
