@@ -197,13 +197,13 @@ class Camera2RRT:
 
                     dist2goal = distance.euclidean((self.rbt_info["x"], self.rbt_info["y"]), (self.goal_info["x"], self.goal_info["y"]))
                     if dist2goal > self.dist_thresh:
-                        f = open("transfer_data.txt", "a")
+                        f = open("transfer_data/send.txt", "a")
                         f.write(f"{self.dist_err:.2f} {self.target_pose:.2f}\n")
                         f.close()
                     else:
                         self.dist_err, self.target_pose = 0, 0
                         self.reach_goal = True
-                        f = open("transfer_data.txt", "a")
+                        f = open("transfer_data/send.txt", "a")
                         f.write(f"{self.dist_err:.2f} {self.target_pose:.2f}\n")
                         f.close()
 

@@ -20,8 +20,6 @@ class Camera2RRT:
         # Planner
         self.graph = None
         self.path = None
-        self.target_waypoint_idx = 0
-        self.dist_thresh = 5
         self.is_planned = False
 
         # Environment
@@ -59,14 +57,15 @@ class Camera2RRT:
         self.is_obs_read = False
         
 
-    def plan_and_plot(self):
-        while not (self.is_goal_read and self.is_obs_read and self.start and self.goal):
-            pass # Wait
+    def core_planning(self, start, goal):
+        """Conduct planning given start point and goal point
 
-        self.graph = RRTGraph(self.start, self.goal, self.obs_size, self.num_obs)
-        obs = self.graph.make_obs(self.obs_points)
-        # obs = self.graph.make_random_obs()
-        self.graph.draw_map(obs)
+        Args:
+            start (Tuple(float, float)): Start point
+            goal (Tuple(float, float)): Goal point
+        """
+        self.graph.set_new_plan(start, goal)
+        self.graph.draw_startgoal()
 
         iteration = 0
         while not self.graph.path_to_goal():
@@ -87,15 +86,24 @@ class Camera2RRT:
         self.path = self.graph.get_path_coords()
         self.path = self.graph.optimize_path(self.path)
         self.graph.draw_path(self.path)
-        self.is_planned = True      # Mark done planning
-        # self.graph.show()
 
+
+    def plan_and_plot(self):
+        while not (self.is_goal_read and self.is_obs_read and self.start and self.goal):
+            pass # Wait until all components on the map are detected
+
+        self.graph = RRTGraph(self.start, self.goal, self.obs_size, self.num_obs)
+        obs = self.graph.make_obs(self.obs_points)
+        self.graph.draw_map(obs)
+
+        self.core_planning(self.start, self.goal)
+        
         # Plot current robot position
         curr_rbt = self.rbt_info.copy()
         while True:
             change_dist = distance.euclidean((curr_rbt["x"], curr_rbt["y"]), (self.rbt_info["x"], self.rbt_info["y"]))
             if change_dist > self.dist_thresh and not self.reach_goal:
-                pure_pursuit = PurePursuit(self.path[::-1], ax=self.graph.ax, followerSpeed=12, lookaheadDistance=7)
+                pure_pursuit = PurePursuit(self.path[::-1], ax=self.graph.ax, followerSpeed=40, lookaheadDistance=30)
                 pure_pursuit.add_follower(curr_rbt["x"], curr_rbt["y"], curr_rbt["ang"])
 
                 for _ in range(2):
@@ -107,6 +115,9 @@ class Camera2RRT:
                     self.graph.pause()
 
                 if not plt.fignum_exists(1):
+                    f = open("transfer_data/send.txt", "a")
+                    f.write("v 0 0\n")
+                    f.close()
                     break
                 curr_rbt = self.rbt_info.copy()
 
@@ -121,10 +132,10 @@ class Camera2RRT:
             marker_corners, marker_IDs, _ = aruco.detectMarkers(
                 gray_frame, self.marker_dict, parameters=self.param_markers
             )
-            if marker_corners:
+            if {33, 50}.issubset(set(marker_IDs.flatten().tolist())):
                 rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
                     marker_corners, self.marker_size, self.cam_mat, self.dist_coef
-                )
+                ) 
                 total_markers = range(0, marker_IDs.size)
                 
                 for ids, corners, i in zip(marker_IDs, marker_corners, total_markers):
@@ -145,7 +156,7 @@ class Camera2RRT:
                         cv2.FONT_HERSHEY_PLAIN,
                         1.0,
                         (0, 0, 255),
-                        2,
+                        1.5,
                         cv2.LINE_AA,
                     )
 
@@ -155,9 +166,9 @@ class Camera2RRT:
                         f"Robot",
                         top_right,
                         cv2.FONT_HERSHEY_PLAIN,
-                        1.3,
+                        1,
                         (0, 0, 255),
-                        2,
+                        1.5,
                         cv2.LINE_AA,
                         )
                         self.rbt_info["x"] = tVec[i][0][0]
@@ -172,9 +183,9 @@ class Camera2RRT:
                         f"Goal",
                         top_right,
                         cv2.FONT_HERSHEY_PLAIN,
-                        1.3,
+                        1,
                         (0, 0, 255),
-                        2,
+                        1.5,
                         cv2.LINE_AA,
                         )
                         if not self.is_goal_read:
@@ -191,28 +202,15 @@ class Camera2RRT:
                         f"Obstacle",
                         top_right,
                         cv2.FONT_HERSHEY_PLAIN,
-                        1.3,
+                        1,
                         (0, 0, 255),
-                        2,
+                        1.5,
                         cv2.LINE_AA,
                         )
                         obs_pts.append((tVec[i][0][0], -tVec[i][0][1]))
                         if len(obs_pts) == self.num_obs:
                             self.is_obs_read = True
                             self.obs_points = obs_pts
-
-                if self.is_planned:
-                    dist2goal = distance.euclidean((self.rbt_info["x"], self.rbt_info["y"]), (self.goal_info["x"], self.goal_info["y"]))
-                    if dist2goal > self.dist_thresh:
-                        pass
-                    else:
-                        self.reach_goal = True
-                        f = open("transfer_data.txt", "a")
-                        f.write("0 0\n")
-                        f.close()
-
-                    if self.dist_err < self.dist_thresh:
-                        self.target_waypoint_idx = self.target_waypoint_idx + 1
 
             cv2.imshow("Camera", frame)
             key = cv2.waitKey(1)
