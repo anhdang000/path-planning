@@ -10,7 +10,7 @@ import numpy as np
 import math
 from scipy.spatial import distance
 
-from RRTbase import RRTGraph
+from modules import RRTGraph
 
 
 class Camera2RRT:
@@ -60,7 +60,7 @@ class Camera2RRT:
         while not (self.is_goal_read and self.is_obs_read and self.start and self.goal):
             pass # Wait
 
-        self.graph = RRTGraph(self.start, self.goal, self.obs_size, self.num_obs)
+        self.graph = RRTGraph(self.start, self.goal, self.goal, self.obs_size, self.num_obs)
         obs = self.graph.make_obs(self.obs_points)
         # obs = self.graph.make_random_obs()
         self.graph.draw_map(obs)

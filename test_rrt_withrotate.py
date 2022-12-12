@@ -10,8 +10,7 @@ import random
 import matplotlib.pyplot as plt
 import scipy.interpolate
 
-from RRTbase import RRTGraph
-from purepursuit import PurePursuit
+from modules import RRTGraph, PurePursuit
 
 
 def main():

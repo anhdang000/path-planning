@@ -10,11 +10,10 @@ from scipy.spatial import distance
 from plotting import Viz
 
 class RRTGraph(Viz):
-    def __init__(self, start, goal, good, obs_dim, num_obs):
+    def __init__(self, start, goal, obs_dim, num_obs):
         super().__init__(start, goal)
         (x, y) = start
         self.goal_flag = False
-        self.good = good
 
         # Init the tree
         self.X = []
@@ -58,8 +57,7 @@ class RRTGraph(Viz):
                 center = self.random_point()
                 ob = mpatches.Circle(center, self.obs_dim, facecolor=self.colors["obstacle"], edgecolor='g')
                 if distance.euclidean(center, self.start) <= self.obs_dim or \
-                    distance.euclidean(center, self.goal) <= self.obs_dim or \
-                    distance.euclidean(center, self.good) <= self.obs_dim:
+                    distance.euclidean(center, self.goal) <= self.obs_dim:
                     start_goal_col = True
                 else:
                     start_goal_col = False

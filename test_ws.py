@@ -10,7 +10,7 @@ async def handler(websocket):
         for msg in msgs:
             print(f'Send: {msg}')
             await websocket.send(msg)
-            time.sleep(0.1)
+            time.sleep(0.5)
 
 
 async def main():

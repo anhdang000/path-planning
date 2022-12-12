@@ -25,7 +25,7 @@ class Camera:
         self.red_upper = np.array([15, 255, 255], dtype=np.uint8)
 
         # Track
-        self.components = {'robot': None, 'goal': None, 'good': None, 'obs': None}
+        self.components = {'robot': None, 'goal': None, 'good': (30, 60), 'obs': None}
 
 
     def detect_color_obj(self, img):
@@ -82,53 +82,59 @@ class Camera:
             gray_img, self.marker_dict, parameters=self.param_markers
         )
         # Check if all objects are already on the map
-        if set(self.id_to_role).issubset(set(marker_IDs.flatten().tolist())):
-            # Reset storage
-            self.components['robot'] = None
-            self.components['goal'] = None
-            self.components['obs'] = []
+        if marker_corners:
+            if set(self.id_to_role).issubset(set(marker_IDs.flatten().tolist())):
+                # Reset storage
+                # self.components['robot'] = None
+                # self.components['goal'] = None
+                # self.components['obs'] = []
+                temp_components = {'robot': None, 'goal': None, 'obs': []}
 
-            rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
-                marker_corners, self.marker_size, self.cam_mat, self.dist_coef
-            )
-            total_markers = range(0, marker_IDs.size)
-            for ids, corners, i in zip(marker_IDs, marker_corners, total_markers):
-                cv2.polylines(
-                    img, [corners.astype(np.int32)], True, (0, 255, 255), 2, cv2.LINE_AA
+                rVec, tVec, _ = aruco.estimatePoseSingleMarkers(
+                    marker_corners, self.marker_size, self.cam_mat, self.dist_coef
                 )
-                corners = corners.reshape(4, 2)
-                corners = corners.astype(int)
-                top_right = corners[0].ravel()
-                bottom_right = corners[2].ravel()
+                total_markers = range(0, marker_IDs.size)
+                for ids, corners, i in zip(marker_IDs, marker_corners, total_markers):
+                    cv2.polylines(
+                        img, [corners.astype(np.int32)], True, (0, 255, 255), 2, cv2.LINE_AA
+                    )
+                    corners = corners.reshape(4, 2)
+                    corners = corners.astype(int)
+                    top_right = corners[0].ravel()
+                    bottom_right = corners[2].ravel()
 
-                # Store positions
-                x = tVec[i][0][0]
-                y = -tVec[i][0][1]
-                if self.id_to_role[ids[0]] == 'obs':
-                    self.components['obs'].append((x, y))
-                else:
-                    self.components[self.id_to_role[ids[0]]] = (x, y)
+                    # Store positions
+                    x = tVec[i][0][0]
+                    y = -tVec[i][0][1]
+                    if self.id_to_role[ids[0]] == 'obs':
+                        temp_components['obs'].append((x, y))
+                    else:
+                        temp_components[self.id_to_role[ids[0]]] = (x, y)
 
-                # Draw the pose of the marker
-                cv2.drawFrameAxes(img, self.cam_mat, self.dist_coef, rVec[i], tVec[i], 4, 2)
-                cv2.putText(
-                    img,
-                    self.id_to_role[ids[0]],
-                    top_right,
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 0, 0),
-                    1,
-                    cv2.LINE_AA,
-                )
-                cv2.putText(
-                    img,
-                    f"({tVec[i][0][0]:.1f}, {tVec[i][0][1]:.1f})",
-                    bottom_right,
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 0, 0),
-                    1,
-                    cv2.LINE_AA,
-                )
+                    # Draw the pose of the marker
+                    cv2.drawFrameAxes(img, self.cam_mat, self.dist_coef, rVec[i], tVec[i], 4, 2)
+                    cv2.putText(
+                        img,
+                        self.id_to_role[ids[0]],
+                        top_right,
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 0, 0),
+                        1,
+                        cv2.LINE_AA,
+                    )
+                    cv2.putText(
+                        img,
+                        f"({tVec[i][0][0]:.1f}, {tVec[i][0][1]:.1f})",
+                        bottom_right,
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 0, 0),
+                        1,
+                        cv2.LINE_AA,
+                    )
+                if all(temp_components.values()):
+                    self.components['robot'] = temp_components['robot']
+                    self.components['goal'] = temp_components['goal']
+                    self.components['obs'] = temp_components['obs']
 

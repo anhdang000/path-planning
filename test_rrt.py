@@ -57,19 +57,19 @@ def main():
     path = graph.optimize_path(path)
     graph.draw_path(path)
 
-    # theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
-    # print(f'Theta: {math.degrees(theta):.2f}')
+    theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
+    print(f'Theta: {math.degrees(theta):.2f}')
 
-    # f = open("transfer_data/send.txt", "a")
-    # f.write(f"r {math.degrees(theta):.2f}\n")
-    # f.close()
-    # time.sleep(1)
+    f = open("transfer_data/send.txt", "a")
+    f.write(f"r {math.degrees(theta):.2f}\n")
+    f.close()
+    time.sleep(1)
 
     pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=40, lookaheadDistance=30)
     pure_pursuit.set_follower(path[-1][0], path[-1][1])
-    # pure_pursuit.follower.theta = theta
+    pure_pursuit.follower.theta = theta
 
-    for i in range(1000):
+    for _ in range(1000):
         pure_pursuit.draw()
 
         if pure_pursuit.follower.is_dead:
@@ -115,19 +115,19 @@ def main():
     path = graph.optimize_path(path)
     graph.draw_path(path)
 
-    # theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
-    # print(f'Theta: {math.degrees(theta):.2f}')
+    theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
+    print(f'Theta: {math.degrees(theta):.2f}')
 
-    # f = open("transfer_data/send.txt", "a")
-    # f.write(f"r {math.degrees(theta):.2f}\n")
-    # f.close()
-    # time.sleep(1)
+    f = open("transfer_data/send.txt", "a")
+    f.write(f"r {math.degrees(theta):.2f}\n")
+    f.close()
+    time.sleep(1)
 
     pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=40, lookaheadDistance=30)
     pure_pursuit.set_follower(path[-1][0], path[-1][1])
     pure_pursuit.follower.theta = theta
 
-    for i in range(1000):
+    for _ in range(1000):
         pure_pursuit.draw()
         graph.set_xylim()
         graph.draw_startgoal()

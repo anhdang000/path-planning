@@ -20,6 +20,7 @@ from utils import log_generator
 
 class Camera2RRT(Camera):
     def __init__(self, with_rotate=False):
+        super().__init__()
         # Planner
         self.graph = None
         self.path = None
@@ -52,7 +53,7 @@ class Camera2RRT(Camera):
         iteration = 0
         while not self.graph.path_to_goal():
             if iteration % 5 == 0:
-                X, Y, Parent = self.graph.bias(self.goal)
+                X, Y, Parent = self.graph.bias(goal)
                 self.graph.draw_edge((X[-1], Y[-1]), (X[Parent[-1]], Y[Parent[-1]]))
                 self.graph.draw_node((X[-1], Y[-1]))
             else:
@@ -89,6 +90,14 @@ class Camera2RRT(Camera):
             theta = previous_theta
 
         while True:
+            rbt2goal = distance.euclidean(self.components['robot'], self.components['goal'])
+            print(f'dist: {rbt2goal:.2f}')
+            if rbt2goal <= 25:
+                print('Destination reached')
+                f = open("transfer_data/send.txt", "a")
+                f.write("v 0 0\n")
+                f.close()
+                break
             pure_pursuit = PurePursuit(
                 self.path[::-1], 
                 ax=self.graph.ax, 
@@ -102,7 +111,7 @@ class Camera2RRT(Camera):
                 theta
                 )
 
-            for _ in range(2):
+            for _ in range(20):
                 pure_pursuit.draw()
                 self.graph.set_xylim()
                 self.graph.draw_startgoal()
@@ -110,6 +119,9 @@ class Camera2RRT(Camera):
 
                 self.graph.pause()
 
+                if pure_pursuit.follower.is_dead:
+                    break
+                
             if pure_pursuit.follower.is_dead:
                 print(f'Destination reached')
                 break
@@ -129,6 +141,7 @@ class Camera2RRT(Camera):
         for lines in log_follow:
             if len(lines) > 0:
                 return float(lines[-1]) 
+
 
     def compute_to_pick(self):
         """
@@ -152,7 +165,7 @@ class Camera2RRT(Camera):
         delta_ang = rbt2good_ang - rbt_pose
         arm_x = rbt2good * math.cos(delta_ang) * 10
         arm_y = rbt2good * math.sin(delta_ang) * 10
-        arm_z = 150
+        arm_z = 85
         a1, a2, a3 = self.robot_arm.inverseKinematics(arm_x, arm_y, arm_z)
         self.robot_arm.updateJointAngles(q1=a1, q2=a2, q3=a3)
         servo_q1, servo_q2, servo_q3 = self.robot_arm.map_kinematicsToServoAngles()
@@ -171,17 +184,20 @@ class Camera2RRT(Camera):
     def plan_and_plot(self):
         while not all(self.components.values()):
             pass # Wait until all components on the map are detected
-
-        start = self.components['robot']
-        goal = self.components['good']
-
-        self.graph = RRTGraph(start, goal, self.obs_size, self.num_obs)
+        self.graph = RRTGraph(
+            self.components['robot'], 
+            self.components['goal'], 
+            self.obs_size, 
+            self.num_obs
+            )
         obs = self.graph.make_obs(self.components['obs'])
         self.graph.draw_map(obs)
 
         tracks = [['robot', 'good'], ['good', 'goal']]
         theta = np.pi/2
         for track in tracks:
+            print(self.components[track[0]])
+            print(self.components[track[1]])
             theta = self.plan_a_track(
                 self.components[track[0]], 
                 self.components[track[1]],
@@ -197,8 +213,9 @@ class Camera2RRT(Camera):
             if not ret:
                 break
 
-            self.detect_color_obj(frame)
+            # self.detect_color_obj(frame)
             self.detect_markers(frame)
+            cv2.imwrite('x.jpg', frame)
 
             cv2.imshow("Camera", frame)
             key = cv2.waitKey(1)
@@ -211,6 +228,7 @@ class Camera2RRT(Camera):
         t1.start()
 
         self.plan_and_plot()
+        t1.join()
 
         
 if __name__ == "__main__":

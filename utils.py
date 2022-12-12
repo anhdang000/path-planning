@@ -7,7 +7,7 @@ def reading_log_files(filename):
     return data
 
 
-def log_generator(filename, period=0.5):
+def log_generator(filename, period=0.2):
     data = reading_log_files(filename)
     while True:
         time.sleep(period)
