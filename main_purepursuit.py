@@ -215,7 +215,6 @@ class Camera2RRT(Camera):
 
             # self.detect_color_obj(frame)
             self.detect_markers(frame)
-            cv2.imwrite('x.jpg', frame)
 
             cv2.imshow("Camera", frame)
             key = cv2.waitKey(1)

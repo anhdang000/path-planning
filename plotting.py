@@ -60,7 +60,7 @@ class Viz:
 
     def draw_path(self, path):
         path = np.array(path)
-        self.ax.plot(path[:, 0], path[:, 1], '-s', color=self.colors["path"], markerfacecolor=self.colors["node_path"], markeredgecolor=self.colors["node_path"])
+        self.ax.plot(path[:, 0], path[:, 1], '-o', color=self.colors["path"], markerfacecolor=self.colors["node_path"], markeredgecolor=self.colors["node_path"], markersize=2)
         
             
 

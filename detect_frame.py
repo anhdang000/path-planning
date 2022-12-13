@@ -19,13 +19,15 @@ cam_height = 200
 
 marker_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
 param_markers = aruco.DetectorParameters_create()
-MARKER_SIZE = 8.8   # cm
+MARKER_SIZE = 9.8   # cm
 
 
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--input-type', help='Image or Video')
     parser.add_argument('--img-dir', '-i', default='sample/images', help='Directory of sample images')
+    parser.add_argument('--vid-source', default=0)
     return parser.parse_args()
 
 
@@ -84,13 +86,13 @@ def detect_color_obj(img):
     kernel = np.ones((5, 5), "uint8")
     red_mask = cv2.dilate(red_mask, kernel)
     res_red = cv2.bitwise_and(img, img, mask=red_mask)
-    cv2.imwrite('m.jpg', red_mask)
+
     # Creating contour to track red color
-    contours, hierarchy = cv2.findContours(red_mask,
+    contours, _ = cv2.findContours(red_mask,
                                            cv2.RETR_TREE,
                                            cv2.CHAIN_APPROX_SIMPLE)
 
-    for pic, contour in enumerate(contours):
+    for _, contour in enumerate(contours):
         area = cv2.contourArea(contour)
         if(area > 100):
             x, y, w, h = cv2.boundingRect(contour)
@@ -111,19 +113,40 @@ def detect_color_obj(img):
                         (0, 0, 0))
 
 
-def detect(img_path):
-    save_path = img_path.replace('images', 'results')
-    org_img = cv2.imread(img_path)
-    detect_markers(org_img)
-    detect_color_obj(org_img)
-    cv2.imwrite(save_path, org_img)
+def detect_frame(img, save_path=None):
+    detect_markers(img)
+    # detect_color_obj(img)
+    if save_path:
+        cv2.imwrite(save_path, img)
 
 
+def detect_sequence(vid_source):
+    cap = cv2.VideoCapture(1)
+    num_saved = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        detect_frame(frame)
 
+        cv2.imshow("frame", frame)
+        key = cv2.waitKey(1)
+        if key == ord("x"):
+            num_saved += 1
+            frame_path = osp.join('frames', f"{num_saved}.jpg")
+            cv2.imwrite(frame_path, frame)
+            print(f"Captured frame at: {frame_path}")
+        if key == ord("q"):
+            break
+         
 
 if __name__ == "__main__":
     args = get_args()
-    img_paths = glob(osp.join(args.img_dir, '*.jpg'))
-    for img_path in img_paths:
-        print(f'Image path: {img_path}')
-        detect(img_path)
+    if args.input_type == 'image':
+        img_paths = glob(osp.join(args.img_dir, '*.jpg'))
+        for img_path in img_paths:
+            print(f'Image path: {img_path}')
+            img = cv2.imread(img_path)
+            detect_frame(img)
+    elif args.input_type == 'video':
+        detect_sequence(args.vid_source)

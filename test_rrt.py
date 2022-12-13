@@ -2,7 +2,7 @@ import sys
 import os
 import os.path as osp
 import time
-from datetime import datetime
+import argparse
 
 import math
 import numpy as np
@@ -12,23 +12,32 @@ import matplotlib.pyplot as plt
 
 from easyEEZYbotARM.kinematic_model import EEZYbotARM_Mk2
 from easyEEZYbotARM.serial_communication import arduinoController
-from modules import RRTGraph, PurePursuit, Camera
+from modules import RRTGraph, PurePursuit
+from utils import smoothen
 
 
-def main():
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--pose', default=np.pi/2)
+    parser.add_argument('--auto-pose', action='store_true')
+    parser.add_argument('--plot-dir', default='plot_images')
+    return parser.parse_args()
+    
+    
+def main(args):
     start = (50, 50)
     good = (100, 250)
     goal = (350, 350)
     obs_dim = 20
     num_obs = 2
-    obs_pts = [(80, 150), (250, 300)]
+    obs_pts = [(80, 150), (250, 300), (250, 100), (200, 210), (150, 340)]
 
     myRobotArm = EEZYbotARM_Mk2(initial_q1=0, initial_q2=90, initial_q3=-130)
     myArduino = arduinoController()
     servoAngle_EE_closed = 10
     servoAngle_EE_open = 90
 
-    graph = RRTGraph(start, goal, good, obs_dim, num_obs)
+    graph = RRTGraph(start, goal, obs_dim, num_obs)
     # obs = graph.make_random_obs()
     obs = graph.make_obs(obs_pts)
     graph.draw_map(obs)
@@ -55,19 +64,23 @@ def main():
 
     path = graph.get_path_coords()
     path = graph.optimize_path(path)
+    path = smoothen(path)
     graph.draw_path(path)
+    graph.fig.savefig(osp.join(args.plot_dir, 'plan_1.png'))
 
-    theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
-    print(f'Theta: {math.degrees(theta):.2f}')
+    if args.auto_pose:
+        theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
+        print(f'Theta: {math.degrees(theta):.2f}')
 
-    f = open("transfer_data/send.txt", "a")
-    f.write(f"r {math.degrees(theta):.2f}\n")
-    f.close()
-    time.sleep(1)
+        f = open("transfer_data/send.txt", "a")
+        f.write(f"r {math.degrees(theta):.2f}\n")
+        f.close()
+        time.sleep(1)
+    else:
+        theta = args.pose
 
     pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=40, lookaheadDistance=30)
-    pure_pursuit.set_follower(path[-1][0], path[-1][1])
-    pure_pursuit.follower.theta = theta
+    pure_pursuit.set_follower(path[-1][0], path[-1][1], theta)
 
     for _ in range(1000):
         pure_pursuit.draw()
@@ -113,15 +126,18 @@ def main():
 
     path = graph.get_path_coords()
     path = graph.optimize_path(path)
+    path = smoothen(path)
     graph.draw_path(path)
+    graph.fig.savefig(osp.join(args.plot_dir, 'plan_2.png'))
 
-    theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
-    print(f'Theta: {math.degrees(theta):.2f}')
+    if args.auto_pose:
+        theta = math.atan2(path[-2][1] - path[-1][1], path[-2][0] - path[-1][0])
+        print(f'Theta: {math.degrees(theta):.2f}')
 
-    f = open("transfer_data/send.txt", "a")
-    f.write(f"r {math.degrees(theta):.2f}\n")
-    f.close()
-    time.sleep(1)
+        f = open("transfer_data/send.txt", "a")
+        f.write(f"r {math.degrees(theta):.2f}\n")
+        f.close()
+        time.sleep(1)
 
     pure_pursuit = PurePursuit(path[::-1], ax=graph.ax, followerSpeed=40, lookaheadDistance=30)
     pure_pursuit.set_follower(path[-1][0], path[-1][1])
@@ -145,9 +161,10 @@ def main():
             f.close()
             break
 
+    graph.fig.savefig(osp.join(args.plot_dir, 'purepursuit_2.png'))
     graph.show()
 
 
 
 if __name__ == "__main__":
-    main()
+    main(get_args())
